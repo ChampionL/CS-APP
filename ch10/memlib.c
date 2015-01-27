@@ -7,6 +7,7 @@ static char *mem_max_addr;			// max virtual address for the heap
 
 /**
  * mem_init initializes the memory system model
+ *
  */
 void mem_init(int size)
 {
@@ -23,6 +24,7 @@ void mem_init(int size)
  * mem_sbrk simple medel of the sbrk function. Extends the heap by incr bytes
  * and returns the start address of the new area.In this model the heap can't 
  * shrunk.
+ *
  */
 void *mem_sbrk(int incr)
 {
@@ -36,3 +38,4 @@ void *mem_sbrk(int incr)
 	mem_brk += incr;
 	return old_sbrk;
 }
+
