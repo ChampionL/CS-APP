@@ -65,4 +65,82 @@ static void *extend_heap(size_t words)
 	return coalesce(bp);
 }
 
+void mm_free(void *bp)
+{
+	size_t size = GET_SIZE(HDRP(bp));	
+	
+	PUT(HDRP(bp), PACK(size, 0));
+	PUT(FTRP(bp), PACK(size, 0));
 
+	coalesce(bp);
+}
+
+static void *coalesce(void *bp)
+{
+	size_t prev_alloc = GET_ALLOC(FTRP(PREV_BLKP(bp)));
+	size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
+	size_t size = GET_SIZE(HDRP(bp));
+
+	if(prev_alloc && next_alloc)
+		return bp;
+	else if(prev_alloc && !next_alloc){
+		size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
+		PUT(HDRP(bp), PACK(size, 0));
+		PUT(FTRP(bp), PACK(size, 0));
+		return(bp);
+	}
+	else if(!prev_alloc && next_alloc){
+		size += GET_SIZE(HDRP(PREV_BLKP(bp)));
+		PUT(FTRP(bp), PACK(size, 0));
+		PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
+		return(PREV_BLKP(bp));
+	}
+	else{
+		size += GET_SIZE(HDRP(PREV_BLKP(bp))) + GET_SIZE(FTRP(NEXT_BLKP(bp)));
+		PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
+		PUT(FTRP(NEXT_BLKP(bp)), PACK(size, 0));
+		return(PREV_BLKP(bp));
+	}
+}
+
+void *mm_malloc(size_t size)
+{
+	size_t asize; //adjusted block size
+	size_t extendsize; // amount to extend heap if no fit
+	char *bp;
+
+	/* Ignore spurious requests*/
+	if(size <= 0)
+		return NULL;
+
+	/* Adjust block size to include overhead and a alignment reqs*/
+	if (size <= DSIZE)
+		asize = DSIZE + OVERHEAD;
+	else 
+		asize = DSIZE * ((size + (OVERHEAD) + (DSIZE-1))/DSIZE);
+
+	/* Search the free list for a fit*/
+
+	if((bp = find_fit(asize)) != NULL){
+		place(bp, asize);
+		return bp;
+	}
+
+	/* No fit found. Get more memeory and place the bock */
+	extendsize = MAX(asize, CHUNKSIZE);
+	if((bp = extend_heap(extendsize/WSIZE)) == NULL)
+		return NULL;
+
+	place(bp, asize);
+	return bp;
+}
+
+static void *find_fit(size_t asize)
+{
+
+}
+
+static void place(void *bp, size_t asize)
+{
+
+}
