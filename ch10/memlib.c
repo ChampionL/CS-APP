@@ -1,5 +1,7 @@
+#include <stdio.h>
 #include <stdlib.h>
-
+#include <errno.h>
+#include "memlib.h"
 // private global variables
 static char *mem_start_brk; 		// points to first byte of the heap
 static char *mem_brk;				// points to last byte of the heap
