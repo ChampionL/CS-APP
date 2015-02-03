@@ -30,6 +30,7 @@
 #define PREV_BLKP(bp) ((char *)(bp) - GET_SIZE((char *)(bp) - DSIZE))
 
 
+static char *heap_listp;
 
 static void *coalesce(void *bp)
 {
@@ -62,12 +63,31 @@ static void *coalesce(void *bp)
 
 static void *find_fit(size_t asize)
 {
- return NULL;
+	void *bp;
+	for(bp=heap_listp;GET_SIZE(bp) > 0;bp=NEXT_BLKP(bp)){
+		if(!GET_ALLOC(HDRP(bp)) && (asize <=GET_SIZE(HDRP(bp))))
+			return bp;
+	}
+	return NULL;
 }
 
 static void place(void *bp, size_t asize)
 {
+	size_t csize = GET_SIZE(HDRP(bp));
 
+	// block size greate than 16,set release of it as unused
+	if((csize - asize) >= (DSIZE + OVERHEAD)){
+		PUT(HDRP(bp), PACK(asize, 1));
+		PUT(FTRP(bp), PACK(asize, 1));
+		
+		bp = NEXT_BLKP(bp);
+		PUT(HDRP(bp), PACK(csize-asize, 0));
+		PUT(FTRP(bp), PACK(csize-asize, 0));
+	}
+	else{
+		PUT(HDRP(bp), PACK(csize, 1));
+		PUT(FTRP(bp), PACK(csize, 1));
+	}
 }
 
 static void *extend_heap(size_t words)
@@ -88,7 +108,6 @@ static void *extend_heap(size_t words)
 	/* coalesce if the previous block was free*/
 	return coalesce(bp);
 }
-static char *heap_listp;
 int mm_init(void)
 {
 	/* create the initial empty heap */
