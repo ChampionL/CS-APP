@@ -12,6 +12,7 @@
 #include <sys/un.h>
 #include <arpa/inet.h>
 #include <sys/stat.h>
+#include <sys/mman.h>
 #include "csapp.h"
 
 void doit(int fd);
@@ -165,4 +166,55 @@ int parse_uri(char *uri, char *filename, char *cgiargs)
 		strcpy(filename, uri);
 		return 0;
 	}
+}
+
+void serve_static(int fd, char *filename, int filesize)
+{
+	int srcfd;
+	char *srcp, filetype[MAXLINE], buf[MAXLINE];
+
+	// send response headers to client
+	get_filetype(filename, filetype);
+	sprintf(buf, "HTTP/1.0 200 OK \r\n");
+	sprintf(buf, "%sServer: Tiny Web Server\r\n", buf);
+	sprintf(buf, "%sContent-length:%d\r\n", buf, filesize);
+	sprintf(buf, "%sContent-type:%s\r\n\r\n", buf, filetype);
+	rio_writen(fd, buf, strlen(buf));
+
+	// send response body to client
+	srcfd = open(filename, O_RONLY,0);
+	srcp = mmap(0, filesize, PROT_READ, MAP_PRIVATE, srcfd, 0);
+	close(srcfd);
+	rio_writen(fd, srcp, filesize);
+	munmap(srcp, filesize);
+}
+
+void get_filetype(char *filename, char *filetype)
+{
+	if(strstr(filename, ".html"))
+		strcpy(filetype, "text/html");
+	else if(strstr(filename, ".gif"))
+		strcpy(filetype, "imag/gif");
+	else if(strstr(filename, ".jpeg"))
+		strcpy(filetype, "imag/jpeg");
+	else
+		strcpy(filetype, "text/plain");
+}
+
+
+void serve_dynamic(int fd, char *filename, char *cgiargs)
+{
+	char buf[MAXLINE],*emptylist[] = {NULL};
+	
+	// return first part of HTTP response
+	sprintf(buf, "HTTP/1.0 200 OK \r\n");
+	rio_writen(fd, buf, strlen(buf));
+	
+	if(fork() == 0){
+		setenv("QUERY_STRING", cgiargs, 1);
+		dup2(fd, STDOUT_FILENO);
+		execve(filename, emptylist, environ);
+	}
+
+	wait(NULL);
 }
