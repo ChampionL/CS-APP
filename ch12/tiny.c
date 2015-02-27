@@ -13,19 +13,25 @@
 #include <arpa/inet.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
+#include <fcntl.h>
 #include "csapp.h"
 
+
+#define MAXLINE 1024
+extern char **environ;
+
 void doit(int fd);
-void read_requesthdrs(char *rp);
+void read_requesthdrs(rio_t *rp);
 int parse_uri(char *uri, char *filename, char *cgiargs);
 void serve_static(int fd, char *filename, int filesize);
 void get_filetype(char *filename, char *filetype);
-void serve_dynamic(int fd, char *cause, char *errnum, char *shortmasg, char *longmsg);
+void serve_dynamic(int fd, char *filename, char *filetype);
+void clienterror(int fd, char *cause, char *errnum, char *shortmasg, char *longmsg);
 
-int main()
+int main(int argc, char **argv)
 {
 	int listenfd, confd, port, clientlen;
-	struct socketaddr_in clinetaddr;
+	struct sockaddr_in clientaddr;
 
 	// Open a socket on Port
 	if(2 != argc){
@@ -40,27 +46,27 @@ int main()
 		exit(-1);
 	}
 	
-	struct socketaddr_in serveraddr;
+	struct sockaddr_in serveraddr;
 	bzero(&serveraddr, sizeof(serveraddr));
 	serveraddr.sin_family = AF_INET;
 	serveraddr.sin_port = htons(port);
-	inet_aton("192.168.153.135", &serveraddr.sin_addr);
-	if( -1 == bind(serverfd, (strcuct sockaddr *)serveraddr, sizeof(serveraddr))){
+	inet_aton("127.0.0.1", &serveraddr.sin_addr);
+	if( -1 == bind(serverfd, (struct sockaddr *)&serveraddr, sizeof(serveraddr))){
 		fprintf(stderr, "bind error\n");
 		close(serverfd);
 		exit(-1);
 	}	
 
 	if(-1 == listen(serverfd, 10)){
-		fprint(stderr, "listen error\n");
+		fprintf(stderr, "listen error\n");
 		close(serverfd);
 		exit(-1);
 	}
 	
 	while(1){
-		int len = sizoef(clinetaddr);
-		int clinetfd = accept(serverfd, (struct sockaddr *)&clinetaddr, &len);
-		fprint(stdout, "connect from %s\n", inet_ntoa(clinetaddr.sin_addr));
+		int len = sizeof(clientaddr);
+		int clinetfd = accept(serverfd, (struct sockaddr *)&clientaddr, &len);
+		fprintf(stdout, "connect from %s\n", inet_ntoa(clientaddr.sin_addr));
 		doit(clinetfd);
 		close(clinetfd);
 	}
@@ -79,7 +85,7 @@ void doit(int fd)
 	rio_readinitb(&rio, fd);
 	rio_readlineb(&rio, buf,MAXLINE);
 	sscanf(buf, "%s %s %s", method, uri, version);
-	if(0 != stcmp(method, "GET")){
+	if(0 != strcmp(method, "GET")){
 		clienterror(fd, method, "501", "Not Implemented",
 		"Tiny does not implement this method");
 		return;
@@ -95,14 +101,14 @@ void doit(int fd)
 	}
 
 	if(is_static){
-		if(!(S_ISREG(sbuf.st_mode)) || !(S_ISUSR && sbuf.st_mode)){
+		if(!(S_ISREG(sbuf.st_mode)) || !(S_IRUSR && sbuf.st_mode)){
 			clienterror(fd, filename, "403", "Forbidden", "Ting couldn't read the file");
 			return;
 		}
 		serve_static(fd, filename, sbuf.st_size);
 	}
 	else{
-		if(!(S_ISREG(sbuf.st_mode)) || !(S_IXUSR(sbuf.st_mode))){
+		if(!(S_ISREG(sbuf.st_mode)) || !(S_IXUSR & sbuf.st_mode)){
 			clienterror(fd, filename, "403", "Forbidden", "Tiny couldn't run the CGI program");
 			return;
 		}
@@ -125,12 +131,12 @@ void clienterror(int fd, char *cause, char *errnum, char *shormsg, char *longmsg
 	rio_writen(fd, buf, strlen(buf));
 	sprintf(buf, "Content-type: text/html\r\n");
 	rio_writen(fd, buf, strlen(buf));
-	sprintf(buf, "Content-length:%d\r\n\r\n", strlen(body));
+	sprintf(buf, "Content-length:%ld\r\n\r\n", strlen(body));
 	rio_writen(fd, buf, strlen(buf));
 	rio_writen(fd, body, strlen(body));
 }
 
-void read_request(rio_t *rp)
+void read_requesthdrs(rio_t *rp)
 {
 	char buf[MAXLINE];
 		
@@ -182,7 +188,7 @@ void serve_static(int fd, char *filename, int filesize)
 	rio_writen(fd, buf, strlen(buf));
 
 	// send response body to client
-	srcfd = open(filename, O_RONLY,0);
+	srcfd = open(filename, O_RDONLY,0);
 	srcp = mmap(0, filesize, PROT_READ, MAP_PRIVATE, srcfd, 0);
 	close(srcfd);
 	rio_writen(fd, srcp, filesize);
