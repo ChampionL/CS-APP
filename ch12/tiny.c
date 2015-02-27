@@ -77,7 +77,7 @@ void doit(int fd)
 {
 	int is_static;
 	struct stat sbuf;
-	char buf[MAXLINE], method[MAXLINE], uri[MAXLINE], version[MAXLINE];
+	char buf[MAXLINE] = {0}, method[MAXLINE]={0}, uri[MAXLINE] = {0}, version[MAXLINE] ={0};
 	char filename[MAXLINE], cgiargs[MAXLINE];
 	rio_t rio;
 
