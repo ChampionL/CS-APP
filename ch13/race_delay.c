@@ -14,6 +14,7 @@ int main()
 	int i=2;
 	for(i = 0; i < N; i++){
 		pthread_create(&tid[i], NULL, thread, &i);
+		sleep(1);
 	}
 	for(i = 0; i< N; i++){
 		pthread_join(tid[i], NULL);
