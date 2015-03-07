@@ -11,9 +11,11 @@ void *thread(void *vargp)
 int main()
 {
 	pthread_t tid[N];
+	int values[N];
 	int i=2;
 	for(i = 0; i < N; i++){
-		pthread_create(&tid[i], NULL, thread, &i);
+		values[i] = i;
+		pthread_create(&tid[i], NULL, thread, &values[i]);
 	}
 	for(i = 0; i< N; i++){
 		pthread_join(tid[i], NULL);
